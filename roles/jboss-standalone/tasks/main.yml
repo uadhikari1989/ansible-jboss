@@ -1,0 +1,65 @@
+---
+- name: Install Java 1.7 and some basic dependencies
+  yum:
+    name: "{{ item }}"
+    state: present
+  ignore_errors: yes
+  with_items:
+   - unzip
+   - java-1.7.0-openjdk
+   - libselinux-python
+   - libsemanage-python
+
+- name: Copy jboss archive to host
+  copy: 
+    src: jboss-fuse-full-6.1.0.redhat-379.zip
+    dest: /usr/share
+  args:
+    force: no
+
+- name: remove jboss Home directory
+  file: state=absent path=/usr/share/jboss-as
+
+- name: Create jboss Home directory
+  file: state=directory path=/usr/share/jboss-as
+
+- name: unzip jboss
+  command: /usr/bin/unzip /usr/share/jboss-fuse-full-6.1.0.redhat-379.zip
+  ignore_errors: yes
+  args:
+    chdir: /usr/share
+
+- name: Rename install directory
+  command: /bin/mv jboss-fuse-6.1.0.redhat-379/ jboss-as 
+  args:
+    chdir: /usr/share 
+
+- name: Add group "jboss"
+  group:
+    name: jboss
+
+- name: Add user "jboss"
+  user:
+    name: jboss
+    group: jboss
+    home: /usr/share/jboss-as
+
+- name: Change ownership of JBoss installation
+  file:
+    path: /usr/share/jboss-as/
+    owner: jboss
+    group: jboss
+    state: directory
+    recurse: yes
+
+- name: Uncomments the user name and password
+  shell: sed -i 's/#admin/admin/' /usr/share/jboss-as/jboss-fuse-6.1.0.redhat-379/etc/users.properties
+
+- name: Start jboss fuse
+  shell:  /usr/share/jboss-as/jboss-fuse-6.1.0.redhat-379/bin/start
+  #ignore_errors: yes
+
+- name: Wait for port 8181 to become open on the host, don't start checking for 10 seconds
+  wait_for:
+    port: 8181
+    delay: 20
