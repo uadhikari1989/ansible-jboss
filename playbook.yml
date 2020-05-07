@@ -4,6 +4,8 @@
 - hosts: localhost
   connection: local
   become: yes
+  vars_files:
+   - infra.yml
 
   roles:
     - jboss-standalone

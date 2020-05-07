@@ -1,38 +1,81 @@
 ---
-- name: Install Java 1.7 and some basic dependencies
+- name: Install  some basic dependencies
   yum:
     name: "{{ item }}"
     state: present
   ignore_errors: yes
   with_items:
    - unzip
-   - java-1.7.0-openjdk
    - libselinux-python
    - libsemanage-python
+
+- name: Create a ORACLE_HOME directory
+  become: yes
+  file:
+    dest: "{{oracle_home}}"
+    mode: 0755
+    state: directory
+
+- name : Copy the JDK Installation files
+  become: yes
+  copy:
+    src: "{{ item }}"
+    dest: "{{ oracle_home }}"
+    mode: 0755
+  with_items:
+    - "server-jre-7u76-linux-x64.tar.gz"
+
+- name : Install java
+  become: yes
+  shell: "tar -xzf server-jre*.tar.gz"
+  args:
+   chdir: "{{ oracle_home }}"
+
+- name: Set JAVA_HOME
+  become: yes
+  lineinfile: 
+       dest: /etc/environment 
+       state: present 
+       regexp: '^JAVA_HOME'
+       line: 'JAVA_HOME={{ oracle_home }}/jdk1.7.0_76/bin'
+
+- name: Create a Soft link to java
+  become: yes
+  tags: linkjava
+  shell: "ln -s {{oracle_home}}/jdk1.7.0_76/bin/java /usr/bin/java"
+  ignore_errors: true
+ 
+- name: Validate Java
+  become: yes
+  command: "java -version"
+  register: javaver
+
+- debug:
+    msg: " Java Version Found {{ javaver.stderr }}"
 
 - name: Copy jboss archive to host
   copy: 
     src: jboss-fuse-full-6.1.0.redhat-379.zip
-    dest: /usr/share
+    dest: /app/oracle
   args:
     force: no
 
 - name: remove jboss Home directory
-  file: state=absent path=/usr/share/jboss-as
+  file: state=absent path=/app/oracle/jboss-as
 
 - name: Create jboss Home directory
-  file: state=directory path=/usr/share/jboss-as
+  file: state=directory path=/app/oracle/jboss-as
 
 - name: unzip jboss
-  command: /usr/bin/unzip /usr/share/jboss-fuse-full-6.1.0.redhat-379.zip
+  command: /usr/bin/unzip /app/oracle/jboss-fuse-full-6.1.0.redhat-379.zip
   ignore_errors: yes
   args:
-    chdir: /usr/share
+    chdir: /app/oracle
 
 - name: Rename install directory
   command: /bin/mv jboss-fuse-6.1.0.redhat-379/ jboss-as 
   args:
-    chdir: /usr/share 
+    chdir: /app/oracle
 
 - name: Add group "jboss"
   group:
@@ -42,21 +85,21 @@
   user:
     name: jboss
     group: jboss
-    home: /usr/share/jboss-as
+    home: /app/oracle/jboss-as
 
 - name: Change ownership of JBoss installation
   file:
-    path: /usr/share/jboss-as/
+    path: /app/oracle/jboss-as/
     owner: jboss
     group: jboss
     state: directory
     recurse: yes
 
 - name: Uncomments the user name and password
-  shell: sed -i 's/#admin/admin/' /usr/share/jboss-as/jboss-fuse-6.1.0.redhat-379/etc/users.properties
+  shell: sed -i 's/#admin/admin/' /app/oracle/jboss-as/jboss-fuse-6.1.0.redhat-379/etc/users.properties
 
 - name: Start jboss fuse
-  shell:  /usr/share/jboss-as/jboss-fuse-6.1.0.redhat-379/bin/start
+  shell:  /app/oracle/jboss-as/jboss-fuse-6.1.0.redhat-379/bin/start
   #ignore_errors: yes
 
 - name: Wait for port 8181 to become open on the host, don't start checking for 10 seconds
