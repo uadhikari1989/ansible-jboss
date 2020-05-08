@@ -23,28 +23,39 @@
     dest: "{{ oracle_home }}"
     mode: 0755
   with_items:
-    - "server-jre-7u76-linux-x64.tar.gz"
+    - "jdk-7u76-linux-x64.tar.gz"
 
 - name : Install java
   become: yes
-  shell: "tar -xzf server-jre*.tar.gz"
+  shell: "tar -xzf jdk-7u76-linux-x64.tar.gz"
   args:
    chdir: "{{ oracle_home }}"
-
+   
 - name: Set JAVA_HOME
   become: yes
-  lineinfile: 
-       dest: /etc/environment 
-       state: present 
+  lineinfile:
+       dest: /etc/environment
+       state: present
        regexp: '^JAVA_HOME'
        line: 'JAVA_HOME={{ oracle_home }}/jdk1.7.0_76/bin'
 
+- name: Create a java_ln directory
+  become: yes
+  file:
+    dest: "{{java_ln_home}}"
+    mode: 0755
+    state: directory
+
 - name: Create a Soft link to java
   become: yes
-  tags: linkjava
   shell: "ln -s {{oracle_home}}/jdk1.7.0_76/bin/java /usr/bin/java"
   ignore_errors: true
- 
+
+- name: Create a Soft link to java_ln_home
+  become: yes
+  shell: "ln -s {{oracle_home}}/jdk1.7.0_76/bin/java /app/oracle/jdk1.7.0_76/bin/bin/"
+  ignore_errors: true
+
 - name: Validate Java
   become: yes
   command: "java -version"
@@ -52,9 +63,9 @@
 
 - debug:
     msg: " Java Version Found {{ javaver.stderr }}"
-
+    
 - name: Copy jboss archive to host
-  copy: 
+  copy:
     src: jboss-fuse-full-6.1.0.redhat-379.zip
     dest: /app/oracle
   args:
@@ -73,7 +84,7 @@
     chdir: /app/oracle
 
 - name: Rename install directory
-  command: /bin/mv jboss-fuse-6.1.0.redhat-379/ jboss-as 
+  command: /bin/mv jboss-fuse-6.1.0.redhat-379/ jboss-as
   args:
     chdir: /app/oracle
 
@@ -106,3 +117,4 @@
   wait_for:
     port: 8181
     delay: 20
+
